@@ -19,7 +19,7 @@ wss.on("connection", (ws, req) => {
         nickname: "",
         role: "not_logged",
     });
-    ws.player = players.get(playerid)
+    ws.player = players.get(ws.playerid)
     //---------------
     ws.send_object = function(object) {
         ws.send(JSON.stringify(object));
