@@ -15,10 +15,11 @@ const wss = new WebSocket.Server({ server });
 
 wss.on("connection", (ws, req) => {
     ws.playerid = Math.ceil(Math.random()*999999999);
-    ws.player = players.set(ws.playerid, {
+    players.set(ws.playerid, {
         nickname: "",
         role: "not_logged",
     });
+    ws.player = players.get(playerid)
     //---------------
     ws.send_object = function(object) {
         ws.send(JSON.stringify(object));
