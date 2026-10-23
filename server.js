@@ -92,11 +92,14 @@ wss.on("connection", (ws, req) => {
 
 function broadcast(object) {
     const message = JSON.stringify(object);
-    for (const client of wss.clients) {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
+    wss.clients.forEach((ws,id) => {
+        if (
+            ws.readyState === WebSocket.OPEN
+            && ws.role !== "not_logged"
+        ) {
+            ws.send(message);
         }
-    }
+    })
 }
 
 server.listen(PORT, "0.0.0.0", () => {
