@@ -2,6 +2,7 @@ const http = require("http");
 const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 8080;
+const players = new Map();
 
 const server = http.createServer((req, res) => {
     res.writeHead(200, {
@@ -13,6 +14,12 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server });
 
 wss.on("connection", (ws, req) => {
+    ws.playerid = Math.ceil(Math.random()*999999999);
+    ws.player = players.set(ws.playerid, {
+        nickname: "",
+        role: "not_logged",
+    });
+    //---------------
     ws.send_object = function(object) {
         ws.send(JSON.stringify(object));
     }
@@ -21,32 +28,60 @@ wss.on("connection", (ws, req) => {
             type: "close",
             reason,
         });
+        ws.close();
     }
     //----------------
     ws.send_object({
-        type: "waitingForUsername"
+        type: "waitingForData"
     });
 
     ws.on("message", (data, isBinary) => {
-        if (isBinary) { 
-            console.log("Got binary data:", data.length, "byte");
-            return;
-        }
         let json = {};
         try {
-            json = JSON.parse(data)
-            if (json.type === "givingUsername") {
-                broadcast({type: "someIsOnline", username: json.username})
-            } else if (json.type === "") {
-                
-            }
+            json = JSON.parse(data);
         } catch (err) {
-            console.log("Error to parse",json)
+            console.log("Error to parse",json);
+            ws.close_connection("DoS");
+            return;
+        }
+
+        if (ws.player.role === "not_logged") {
+            if (json.type === "givingData") {
+                if (json.password === process.env.password) {
+                    ws.player.role = "admin";
+                } else if (json.password !== "") {
+                    ws.close_connection("wrong_password")
+                    return;
+                } else {
+                    ws.player.role = "member";
+                }
+                ws.player.nickname = json.username;
+                ws.send_object({type: "connected"});
+                broadcast({type: "userIsOnline", username: ws.player.nickname});
+            } else {
+                ws.close_connection("unalled_command_while_not_logged")
+                return;
+            }
+        } else {
+            if (json.type === "getPlayers") {
+                let array = [];
+                players.forEach((data,id) => {
+                    array.push(data.nickname);
+                });
+                ws.send_object({
+                    type: "getPlayers",
+                    array,
+                });
+            } else {
+                ws.close_connection("unalled_command")
+                return;
+            }
         }
     });
 
     ws.on("close", () => {
-        console.log("Client disconnected");
+        broadcast({type: "userIsOffline", username: ws.player.nickname});
+        players.delete(ws.playerid);
     });
 
     ws.on("error", (err) => {
@@ -54,7 +89,6 @@ wss.on("connection", (ws, req) => {
     });
 });
 
-// Рассылка всем подключённым клиентам
 function broadcast(object) {
     const message = JSON.stringify(object);
     for (const client of wss.clients) {
