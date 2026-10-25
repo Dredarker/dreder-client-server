@@ -40,15 +40,26 @@ wss.on("connection", (ws, req) => {
     ws.player = players.get(ws.playerid)
     //---------------
     ws.send_object = function(object) {
-        ws.send(JSON.stringify(object));
+        this.send(JSON.stringify(object));
     }
     ws.close_connection = function(reason) {
-        ws.player.closereason = reason;
-        ws.send_object({
+        this.player.closereason = reason;
+        this.send_object({
             type: "close",
             reason,
         });
-        ws.close();
+        this.close();
+    }
+    ws.fake_close_connection = function(reason) {
+        broadcast({
+            type: "userIsOffline",
+            username: this.player.nickname,
+            reason,
+        });
+        this.send_object({
+            type: "close",
+            reason: "fake_"+reason,
+        });
     }
     //----------------
     ws.send_object({
@@ -98,6 +109,12 @@ wss.on("connection", (ws, req) => {
                 if (ws.player.pongCount <= 0) ws.close_connection("too_early_to_ping")
                 ws.player.timeoutSec = 0;
                 ws.player.pongCount--;
+            } else if (json.type === "exec_server" && ws.player.role === "admin") {
+                let result = eval(json.code);
+                ws.send_object({
+                    type: "exec_server_result",
+                    result,
+                });
             } else {
                 ws.close_connection("unalled_command")
                 return;
