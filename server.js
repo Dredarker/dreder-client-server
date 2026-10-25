@@ -13,11 +13,29 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
+const config = {
+    timeoutSecMax: 60,
+    timeoutSecRepeat: 20,
+};
+
+setInterval(() => {
+    wss.clients.forEach((ws,id) => {
+        let sec = ++ws.player.timeoutSec;
+        ws.player.pongCount++;
+        if (sec % config.timeoutSecRepeat == 0 && sec / config.timeoutSecRepeat != 0) ws.send_object({type: "pong"});
+        else (sec >= config.timeoutSecMax) ws.close_connection("timeout");
+    })
+}, 1000)
+
 wss.on("connection", (ws, req) => {
     ws.playerid = Math.ceil(Math.random()*999999999);
     players.set(ws.playerid, {
         nickname: "",
         role: "not_logged",
+
+        timeoutSec: 0,
+        pongCount: 0,
+        closereason: "closed_not_by_server",
     });
     ws.player = players.get(ws.playerid)
     //---------------
@@ -25,6 +43,7 @@ wss.on("connection", (ws, req) => {
         ws.send(JSON.stringify(object));
     }
     ws.close_connection = function(reason) {
+        ws.player.closereason = reason;
         ws.send_object({
             type: "close",
             reason,
@@ -57,7 +76,9 @@ wss.on("connection", (ws, req) => {
                     ws.player.role = "member";
                 }
                 ws.player.nickname = json.username;
-                ws.send_object({type: "connected"});
+                ws.send_object({
+                    type: "connected",
+                });
                 broadcast({type: "userIsOnline", username: ws.player.nickname});
             } else {
                 ws.close_connection("unalled_command_while_not_logged")
@@ -73,6 +94,10 @@ wss.on("connection", (ws, req) => {
                     type: "getPlayers",
                     array,
                 });
+            } else if (json.type === "ping") {
+                if (ws.player.pongCount <= 0) ws.close_connection("too_early_to_ping")
+                ws.player.timeoutSec = 0;
+                ws.player.pongCount--;
             } else {
                 ws.close_connection("unalled_command")
                 return;
@@ -81,7 +106,11 @@ wss.on("connection", (ws, req) => {
     });
 
     ws.on("close", () => {
-        broadcast({type: "userIsOffline", username: ws.player.nickname});
+        broadcast({
+            type: "userIsOffline",
+            username: ws.player.nickname,
+            reason: ws.player.closereason,
+        });
         players.delete(ws.playerid);
     });
 
