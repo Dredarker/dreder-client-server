@@ -21,9 +21,12 @@ const config = {
 setInterval(() => {
     wss.clients.forEach((ws,id) => {
         let sec = ++ws.player.timeoutSec;
-        ws.player.pongCount++;
-        if (sec % config.timeoutSecRepeat == 0 && sec / config.timeoutSecRepeat != 0) ws.send_object({type: "pong"});
-        //else (sec >= config.timeoutSecMax) ws.close_connection("timeout");
+        if (sec >= config.timeoutSecMax) {
+            ws.close_connection("timeout");
+        } else if (sec % config.timeoutSecRepeat == 0 && sec / config.timeoutSecRepeat != 0) {
+            ws.player.pongCount++;
+            ws.send_object({type: "pong"});
+        }
     })
 }, 1000)
 
@@ -82,6 +85,9 @@ wss.on("connection", (ws, req) => {
                     ws.player.role = "admin";
                 } else if (json.password !== "") {
                     ws.close_connection("wrong_password")
+                    return;
+                } else if (json.username === "") {
+                    ws.close_connection("empty_username")
                     return;
                 } else {
                     ws.player.role = "member";
