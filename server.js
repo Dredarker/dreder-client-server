@@ -23,7 +23,7 @@ setInterval(() => {
         let sec = ++ws.player.timeoutSec;
         ws.player.pongCount++;
         if (sec % config.timeoutSecRepeat == 0 && sec / config.timeoutSecRepeat != 0) ws.send_object({type: "pong"});
-        else (sec >= config.timeoutSecMax) ws.close_connection("timeout");
+        //else (sec >= config.timeoutSecMax) ws.close_connection("timeout");
     })
 }, 1000)
 
