@@ -104,7 +104,9 @@ wss.on("connection", (ws, req) => {
                 ws.send_object({
                     type: "connected",
                 });
-                broadcast({type: "userIsOnline", username: ws.player.nickname});
+                broadcast({type: "userIsOnline", id: ws.playerid, data: {
+                    nickname: ws.player.nickname
+                }});
             } else {
                 ws.close_connection("unalled_command_while_not_logged")
                 return;
@@ -113,7 +115,7 @@ wss.on("connection", (ws, req) => {
             if (json.type === "getPlayers") {
                 let players = {};
                 players.forEach((data,id) => {
-                    players[id] = {data.nickname};
+                    players[id] = {nickname: data.nickname};
                 });
                 ws.send_object({
                     type: "getPlayers",
@@ -146,7 +148,7 @@ wss.on("connection", (ws, req) => {
     ws.on("close", () => {
         broadcast({
             type: "userIsOffline",
-            username: ws.player.nickname,
+            id: ws.playerid,
             reason: ws.player.closereason,
         });
         players.delete(ws.playerid);
