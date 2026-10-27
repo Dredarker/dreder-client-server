@@ -3,6 +3,7 @@ const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 8080;
 const players = new Map();
+const rooms = new Map();
 
 const server = http.createServer((req, res) => {
     res.writeHead(200, {
@@ -70,12 +71,19 @@ wss.on("connection", (ws, req) => {
     });
 
     ws.on("message", (data, isBinary) => {
+        if (
+            data.length > 1000
+            && role !== "admin"
+        ) {
+            ws.close_connection("too_long_data");
+            return;
+        }
         let json = {};
         try {
             json = JSON.parse(data);
         } catch (err) {
             console.log("Error to parse",json);
-            ws.close_connection("DoS");
+            ws.close_connection("not_json");
             return;
         }
 
@@ -103,18 +111,25 @@ wss.on("connection", (ws, req) => {
             }
         } else {
             if (json.type === "getPlayers") {
-                let array = [];
+                let players = {};
                 players.forEach((data,id) => {
-                    array.push(data.nickname);
+                    players[id] = {data.nickname};
                 });
                 ws.send_object({
                     type: "getPlayers",
-                    array,
+                    players,
                 });
             } else if (json.type === "ping") {
                 if (ws.player.pongCount <= 0) ws.close_connection("too_early_to_ping")
                 ws.player.timeoutSec = 0;
                 ws.player.pongCount--;
+            } else if (json.type === "room") {
+                if (json.subtype === "join_or_create") {
+                    // on create/join room...
+                } else {
+                    ws.close_connection("unalled_subcommand")
+                    return;
+                }
             } else if (json.type === "exec_server" && ws.player.role === "admin") {
                 let result = eval(json.code);
                 ws.send_object({
