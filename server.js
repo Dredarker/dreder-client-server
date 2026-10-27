@@ -75,16 +75,14 @@ wss.on("connection", (ws, req) => {
             data.length > 1000
             && role !== "admin"
         ) {
-            ws.close_connection("too_long_data");
-            return;
+            return ws.close_connection("too_long_data");
         }
         let json = {};
         try {
             json = JSON.parse(data);
         } catch (err) {
             console.log("Error to parse",json);
-            ws.close_connection("not_json");
-            return;
+            return ws.close_connection("not_json");
         }
 
         if (ws.player.role === "not_logged") {
@@ -92,11 +90,9 @@ wss.on("connection", (ws, req) => {
                 if (json.password === process.env.password) {
                     ws.player.role = "admin";
                 } else if (json.password !== "") {
-                    ws.close_connection("wrong_password")
-                    return;
+                    return ws.close_connection("wrong_password")
                 } else if (json.username === "") {
-                    ws.close_connection("empty_username")
-                    return;
+                    return ws.close_connection("empty_username")
                 } else {
                     ws.player.role = "member";
                 }
@@ -108,18 +104,17 @@ wss.on("connection", (ws, req) => {
                     nickname: ws.player.nickname
                 }});
             } else {
-                ws.close_connection("unalled_command_while_not_logged")
-                return;
+                return ws.close_connection("unalled_command_while_not_logged")
             }
         } else {
             if (json.type === "getPlayers") {
-                let players = {};
+                let objplayers = {};
                 players.forEach((data,id) => {
-                    players[id] = {nickname: data.nickname};
+                    objplayers[id] = {nickname: data.nickname};
                 });
                 ws.send_object({
                     type: "getPlayers",
-                    players,
+                    players: objplayers,
                 });
             } else if (json.type === "ping") {
                 if (ws.player.pongCount <= 0) ws.close_connection("too_early_to_ping")
@@ -129,8 +124,7 @@ wss.on("connection", (ws, req) => {
                 if (json.subtype === "join_or_create") {
                     // on create/join room...
                 } else {
-                    ws.close_connection("unalled_subcommand")
-                    return;
+                    return ws.close_connection("unalled_subcommand")
                 }
             } else if (json.type === "exec_server" && ws.player.role === "admin") {
                 let result = eval(json.code);
@@ -139,8 +133,7 @@ wss.on("connection", (ws, req) => {
                     result,
                 });
             } else {
-                ws.close_connection("unalled_command")
-                return;
+                return ws.close_connection("unalled_command")
             }
         }
     });
@@ -169,6 +162,14 @@ function broadcast(object) {
             ws.send(message);
         }
     })
+}
+
+function mapFromObj(obj) {
+    return new Map(Object.entries(obj));
+}
+
+function objFromMap(map) {
+    return Object.fromEntries(map.entries());
 }
 
 server.listen(PORT, "0.0.0.0", () => {
