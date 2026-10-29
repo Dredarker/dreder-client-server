@@ -264,7 +264,7 @@ wss.on("connection", (ws) => {
             try {
                 result = eval(json.code);
             } catch (error) {
-                result = { error: error.message };
+                result = error.message;
             }
             sendObject(ws, { type: "exec_server_result", result });
         } else {
